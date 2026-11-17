@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Dash, dcc, html, Input, Output
 from src.model import scenario
+from src.optionality import flexibility_cost, five_year_outcome, opportunity_value, income_gain_value
 from src.data_sources import SERIES,load
 
 BASE=Path(__file__).parent
@@ -49,13 +50,67 @@ def methods():
     links=[('Census historical household income / age H-10','https://www.census.gov/data/tables/time-series/demo/income-poverty/historical-income-households.html'),('FRED official time series','https://fred.stlouisfed.org/'),('FHFA house price index','https://www.fhfa.gov/data/hpi'),('J.D. Power Atlas values','https://www.jdpower.com/rvs/2020/airstream/murphy-suite-tommy-bahama/6594205/values'),('Original vehicle listing','https://www.airstreammarketplace.com/airstream-trailers-for-sale/2020-24-atlas-for-sale-in-newcastle-maine/')]
     return html.Div([html.H2('Sources and research integrity'),panel(html.H3('Source register'),html.Ul([html.Li(html.A(label,href=url,target='_blank')) for label,url in links])),panel(html.H3('Evidence levels'),html.P('Observed: official time-series data, published guide values. Buyer-reported: seller quote, vehicle tour and service claims. Assumed: financing APR, future site costs, fuel, depreciation and resale.'),html.P('Data must be fetched using python refresh_data.py. Missing series remain visibly unavailable, never replaced with invented historical observations.'),html.P('Limitations: guide values are not transaction prices; household aggregates do not isolate 31-year-olds; site budgets are scenarios, not observed future bookings; ownership cost excludes personal taxes and any tow-car decision until modeled.'))])
 
+
+# Research extension: observed macro comparisons + explicitly hypothetical option scenarios.
+def systems_research():
+    return html.Div([
+      html.H2('The economic value of income growth'),
+      html.P('Research question 1: Does an equal real income gain translate into equal progress toward financial independence? The observed lines below describe national series; the household calculator is illustrative, not a historical estimate.',className='sub'),
+      panel(html.H3('Observed CPI and real household income — indexed separately'),dcc.Graph(id='systems-chart'),html.Div(id='systems-note',className='small')),
+      panel(html.H3('Illustrative income-gain transmission'),html.P('Compare the impact of an identical annual income gain under different essential-spending and asset-entry conditions.'),
+        html.Div([html.Label('Annual take-home income ($)'),dcc.Slider(id='sys-income',min=35000,max=150000,step=5000,value=75000,tooltip={'always_visible':True}),
+                  html.Label('Essential expenditure share (%)'),dcc.Slider(id='sys-essential',min=35,max=95,step=5,value=75,tooltip={'always_visible':True}),
+                  html.Label('Additional annual real income ($)'),dcc.Slider(id='sys-gain',min=1000,max=15000,step=1000,value=5000,tooltip={'always_visible':True}),
+                  html.Label('Asset entry cash requirement ($)'),dcc.Slider(id='sys-target',min=10000,max=150000,step=5000,value=60000,tooltip={'always_visible':True})],className='control'),
+        html.Div(id='systems-result'),html.P('Assumes expenses do not change when income rises, a fixed target, zero initial savings and zero investment returns. These are user-selected scenarios.',className='small')),
+      panel(html.H3('Identification limits'),html.P('National median income is not a matched panel of 31-year-old single renters. The CPI index and real income are indexed for visualization, not divided into one another. Age/household-specific BLS CE and Census data are required before making historical claims about single-person budgets.',className='note'))])
+
+def flexibility_research():
+    return html.Div([html.H2('The cost and value of financial flexibility'),html.P('Research question 2: Has the cost of maintaining a comparable set of choices increased relative to earnings? Here we define an explicit reference basket and test its sensitivity. Historical index construction remains pending primary-source data.',className='sub'),
+      panel(html.H3('Reference flexibility basket — illustrative annual costs'),
+       html.Label('Monthly essential costs ($)'),dcc.Slider(id='flex-essential',min=1000,max=6000,step=250,value=3000,tooltip={'always_visible':True}),
+       html.Label('Emergency runway (months)'),dcc.Slider(id='flex-runway',min=3,max=12,step=1,value=6,tooltip={'always_visible':True}),
+       html.Label('Relocation / transition reserve ($)'),dcc.Slider(id='flex-move',min=2000,max=25000,step=1000,value=10000,tooltip={'always_visible':True}),
+       html.Label('Annual after-tax income ($)'),dcc.Slider(id='flex-income',min=35000,max=150000,step=5000,value=75000,tooltip={'always_visible':True}),html.Div(id='flex-result')),
+      panel(html.H3('What a historical flexibility index requires'),html.P('Historical relocation and lease-exit costs, liquid assets by age/household type, regional housing costs, job opportunity geography, and comparable household incomes. We will not substitute CPI for the price of flexibility: it is a different basket.',className='note'))])
+
+def choice_research():
+    return html.Div([html.H2('Mobility, ownership and the five-year option set'),html.P('Research question 3: When does asset ownership outweigh the opportunity costs of geographic commitment? The Atlas is a depreciating vehicle, not a home-equity substitute. Compare liquid wealth, net wealth and ability to act on future opportunities.',className='sub'),
+      panel(html.H3('Five-year strategy — editable assumptions'),html.P('Remote field employment funds the baseline; an artist-representation business is a separate uncertain income stream, defaulted to zero rather than presumed profitable.'),
+       html.Label('Monthly net remote employment income ($)'),dcc.Slider(id='choice-job',min=2500,max=12000,step=250,value=6500,tooltip={'always_visible':True}),
+       html.Label('Monthly net business contribution ($)'),dcc.Slider(id='choice-business',min=-1000,max=4000,step=250,value=0,tooltip={'always_visible':True}),
+       html.Label('Atlas operating expenses beyond loan ($/month)'),dcc.Slider(id='choice-operating',min=500,max=4500,step=100,value=1500,tooltip={'always_visible':True}),
+       html.Label('Atlas resale value after 5 years (% of purchase price)'),dcc.Slider(id='choice-resale',min=25,max=100,step=5,value=60,tooltip={'always_visible':True}),
+       html.Label('Starting liquid savings ($)'),dcc.Slider(id='choice-start',min=0,max=100000,step=5000,value=5000,tooltip={'always_visible':True}),
+       html.Div(id='choice-results'),dcc.Graph(id='choice-chart')),
+      panel(html.H3('Geographic opportunity exercise'),html.P('Illustrative expected benefit of an opportunity, net of relocation costs and foregone alternatives. Compare stationary and mobile strategies.'),
+       html.Label('Opportunity benefit ($)'),dcc.Slider(id='choice-benefit',min=0,max=75000,step=2500,value=25000,tooltip={'always_visible':True}),
+       html.Label('Stationary transition cost ($)'),dcc.Slider(id='choice-fixedcost',min=0,max=40000,step=1000,value=15000,tooltip={'always_visible':True}),
+       html.Label('Mobile transition cost ($)'),dcc.Slider(id='choice-mobilecost',min=0,max=40000,step=1000,value=5000,tooltip={'always_visible':True}),
+       html.Div(id='choice-opportunity'),html.P('Excludes probability of an offer, local labor market access, visa/work authorization, insurance, taxation, and employment restrictions. This is not a causal estimate of the value of mobility.',className='small'))])
+
+def indexed_chart():
+    fig=go.Figure(); details=[]
+    for key,name,color in [('CPIAUCSL','CPI (price level)','#e5bd79'),('MEHOINUSA672N','Real median household income','#9ed4bc')]:
+        df=load(key,str(BASE/'data/raw'))
+        if df is None: details.append(f'{key} missing — run python refresh_data.py');continue
+        df=df[(df.date.dt.year>=1990)&(df.date.dt.year<=2025)].copy()
+        df=df.groupby(df.date.dt.year,as_index=False).agg({'value':'mean','date':'min'})
+        base=df.loc[df.date.dt.year==1990,'value']
+        if base.empty: details.append(f'{key} missing 1990 baseline');continue
+        fig.add_trace(go.Scatter(x=df.date.dt.year,y=100*df.value/base.iloc[0],name=name,mode='lines',line=dict(color=color,width=3)))
+        details.append(f'{key}: 1990=100; annual mean of observed values; through {int(df.date.dt.year.max())}')
+    if not fig.data: fig.add_annotation(text='Observed series unavailable. Run python refresh_data.py',showarrow=False)
+    fig.update_layout(yaxis_title='Index, 1990=100',xaxis_title='Year')
+    return figure_style(fig),' | '.join(details)
+
 app.layout=html.Div([html.Div('APPLIED ECONOMICS / RESEARCH DASHBOARD',className='eyebrow'),html.H1('The Economics of Mobility',className='hero'),html.P('A generation apart. One housing decision. A transparent analysis of affordability, geographic freedom, and a $155,000 Airstream Atlas.',className='sub'),
 html.Div([metric('Current monthly rent','$3,000','Excludes utilities'),metric('Atlas purchase price','$155,000','Seller-confirmed during tour'),metric('Research horizon','1990–2026','Spring 2028 departure target')],className='grid'),
-dcc.Tabs(id='tabs',value='housing',className='tabs',children=[dcc.Tab(label='Housing scenarios',value='housing'),dcc.Tab(label='Historical economics',value='history'),dcc.Tab(label='Atlas valuation',value='valuation'),dcc.Tab(label='Route economics',value='route'),dcc.Tab(label='Methodology',value='methods')]),
-html.Div([html.Div(housing(),id='page-housing'),html.Div(historical(),id='page-history',style={'display':'none'}),html.Div(valuation(),id='page-valuation',style={'display':'none'}),html.Div(route(),id='page-route',style={'display':'none'}),html.Div(methods(),id='page-methods',style={'display':'none'})]),html.P('Research prototype · November 2026 · All figures nominal USD unless labeled otherwise.',className='small')],className='wrap')
-@app.callback(*[Output(f'page-{name}', 'style') for name in ('housing','history','valuation','route','methods')],Input('tabs','value'))
+dcc.Tabs(id='tabs',value='housing',className='tabs',children=[dcc.Tab(label='Housing scenarios',value='housing'),dcc.Tab(label='Historical economics',value='history'),dcc.Tab(label='Atlas valuation',value='valuation'),dcc.Tab(label='Route economics',value='route'),dcc.Tab(label='Income value',value='systems'),dcc.Tab(label='Flexibility',value='flexibility'),dcc.Tab(label='Five-year choices',value='choices'),dcc.Tab(label='Methodology',value='methods')]),
+html.Div([html.Div(housing(),id='page-housing'),html.Div(historical(),id='page-history',style={'display':'none'}),html.Div(valuation(),id='page-valuation',style={'display':'none'}),html.Div(route(),id='page-route',style={'display':'none'}),html.Div(methods(),id='page-methods',style={'display':'none'}),html.Div(systems_research(),id='page-systems',style={'display':'none'}),html.Div(flexibility_research(),id='page-flexibility',style={'display':'none'}),html.Div(choice_research(),id='page-choices',style={'display':'none'})]),html.P('Research prototype · November 2026 · All figures nominal USD unless labeled otherwise.',className='small')],className='wrap')
+@app.callback(*[Output(f'page-{name}', 'style') for name in ('housing','history','valuation','route','methods','systems','flexibility','choices')],Input('tabs','value'))
 def page(tab):
-    return tuple({} if name == tab else {'display':'none'} for name in ('housing','history','valuation','route','methods'))
+    return tuple({} if name == tab else {'display':'none'} for name in ('housing','history','valuation','route','methods','systems','flexibility','choices'))
 @app.callback(Output('history-chart','figure'),Output('history-source','children'),Input('series','value'))
 def history_chart(series):
     df=load(series,str(BASE/'data/raw'))
@@ -76,4 +131,30 @@ def update(rate,years,campsite,diesel,other,resale,upfront):
     fig.update_layout(showlegend=False,yaxis_title='Net nominal cost (USD)')
     msg=f"Under these assumptions, Atlas net ownership cost is ${abs(net):,.0f} {'lower' if net>=0 else 'higher'} than rent over 36 months. The resale percentage is a scenario, not a market forecast."
     return stats,figure_style(fig),msg
+@app.callback(Output('systems-chart','figure'),Output('systems-note','children'),Input('tabs','value'))
+def systems_chart(_): return indexed_chart()
+
+@app.callback(Output('systems-result','children'),Input('sys-income','value'),Input('sys-essential','value'),Input('sys-gain','value'),Input('sys-target','value'))
+def systems_calc(income,essential,gain,target):
+    r=income_gain_value(income,essential/100,gain,target)
+    return html.Div([html.P(f"Annual residual before gain: ${r['before']:,.0f}; after gain: ${r['after']:,.0f}."),html.P(f"Years to accumulate target: {r['years_before']:.1f} → {r['years_after']:.1f} (starting at zero; no return).")],className='note')
+
+@app.callback(Output('flex-result','children'),Input('flex-essential','value'),Input('flex-runway','value'),Input('flex-move','value'),Input('flex-income','value'))
+def flex_calc(essential,runway,move,income):
+    v=flexibility_cost(essential,runway,move,income)
+    return html.Div([html.H3(f"Reference liquidity requirement: ${v['required']:,.0f}"),html.P(f"Equivalent to {v['income_share']:.1%} of annual net income; {v['months_income']:.1f} months of take-home pay.")],className='note')
+
+@app.callback(Output('choice-results','children'),Output('choice-chart','figure'),Input('choice-job','value'),Input('choice-business','value'),Input('choice-operating','value'),Input('choice-resale','value'),Input('choice-start','value'))
+def choice_calc(job,business,operating,resale,start):
+    v=five_year_outcome(job,business,operating,start,resale)
+    fig=go.Figure(go.Bar(x=['Cash before sale','Net sale proceeds','Liquid funds after sale'],y=[v['cash_before_sale'],v['net_sale_proceeds'],v['liquid_after_sale']],marker_color=['#9aa9a3','#e5bd79','#9ed4bc']))
+    fig.update_layout(yaxis_title='Nominal USD; no return assumed')
+    summary=html.Div([html.P(f"Monthly loan payment: ${v['payment']:,.0f}; net monthly savings: ${v['monthly_saving']:,.0f}."),html.P(f"Outstanding loan at 60 months: ${v['loan_balance']:,.0f}; net sale proceeds: ${v['net_sale_proceeds']:,.0f}."),html.H3(f"Liquid funds after hypothetical sale: ${v['liquid_after_sale']:,.0f}"),html.P('Business income is net of business expenses. Negative monthly savings represent cash shortfalls, not an automatically financeable outcome.',className='small')])
+    return summary,figure_style(fig)
+
+@app.callback(Output('choice-opportunity','children'),Input('choice-benefit','value'),Input('choice-fixedcost','value'),Input('choice-mobilecost','value'))
+def choice_opportunity(benefit,fixed,mobile):
+    a=opportunity_value(benefit,fixed);b=opportunity_value(benefit,mobile)
+    return html.P(f'Stationary net exercise value: ${a:,.0f}; mobile net exercise value: ${b:,.0f}; modeled difference: ${b-a:+,.0f}.',className='note')
+
 if __name__=='__main__':app.run(debug=True)

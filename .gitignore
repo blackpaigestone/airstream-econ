@@ -5,3 +5,6 @@ __pycache__/
 .env
 .env.*
 *.backup
+app.py.backup
+data/raw/
+data/processed/
