@@ -1,0 +1,34 @@
+{
+  "source": "US Census ACS 1-year detailed table B25007",
+  "dataset": "acs/acs1",
+  "geography": "United States",
+  "age": "age of householder",
+  "years_requested": [
+    2010,
+    2024
+  ],
+  "years_retrieved": [
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2021,
+    2022,
+    2023,
+    2024
+  ],
+  "failures": [
+    {
+      "year": 2020,
+      "reason": "2020 ACS standard 1-year data were not released"
+    }
+  ],
+  "definitions": "Owner/renter occupied units by householder age; counts are published ACS estimates, not individuals or financial readiness.",
+  "source_url": "https://api.census.gov/data.html"
+}

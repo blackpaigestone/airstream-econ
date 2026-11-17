@@ -8,6 +8,7 @@ from src.data_sources import SERIES,load
 from src.research.historical import build_historical_panel
 from src.research.households import household_budget, readiness_budget
 from src.research.household_evidence import load_evidence
+from src.research.census_acs import load_panel
 
 BASE=Path(__file__).parent
 app=Dash(__name__,title='The Economics of Optionality')
@@ -184,7 +185,36 @@ def household_evidence():
         html.Label('Measure'),dcc.Dropdown(id='hh-ev-metric',options=[{'label':v,'value':k} for k,v in [('readiness_share','Readiness share (proxy)'),('positive_cashflow_share','Nonnegative cashflow share'),('weighted_savings_capacity','Annual disposable income minus essential spending'),('weighted_per_adult_essentials','Annual essentials per adult'),('weighted_independent_premium','Solo/shared observed spending ratio')]],value='readiness_share',style={'color':'#172022'}),
         dcc.Graph(id='hh-ev-chart'),html.Div(id='hh-ev-coverage',className='small')),
       panel(html.H3('Evidence boundary'),html.P('The required file is data/external/household_harmonized.csv. This is a researcher-produced harmonized extract, NOT a raw SCF, CE or Census file. Each source must document sample universe, survey weights, financial definitions, price base and comparability. No cross-source pooling, imputation, or readiness-age gap is inferred.'),
-        html.P('A solo/shared spending ratio describes observed groups; it does not identify the causal effect of sharing a household. Financial readiness is an operational proxy, not a validated financial-health diagnosis.',className='note'))])
+        html.P('A solo/shared spending ratio describes observed groups; it does not identify the causal effect of sharing a household. Financial readiness is an operational proxy, not a validated financial-health diagnosis.',className='note')),
+      panel(html.H3('Observed Census tenure by age of householder'),
+        html.P('US Census ACS 1-year, table B25007. These are observed housing tenure estimates for households classified by the age of the householder—not income, spending, financial readiness, or solo/shared household status.',className='small'),
+        html.Label('Census age bracket'),dcc.Dropdown(id='acs-age',options=[{'label':v,'value':v} for v in ('25–34','35–44','45–54')],value='25–34',style={'color':'#172022'}),
+        html.Label('Tenure measure'),dcc.Dropdown(id='acs-measure',options=[{'label':'Renter share','value':'renter_share'},{'label':'Owner share','value':'owner_share'},{'label':'Renter households','value':'renter_households'},{'label':'Owner households','value':'owner_households'}],value='renter_share',style={'color':'#172022'}),
+        dcc.Graph(id='acs-chart'),html.Div(id='acs-coverage',className='small'))])
+
+@app.callback(Output('acs-chart','figure'),Output('acs-coverage','children'),
+              Input('acs-age','value'),Input('acs-measure','value'))
+def acs_chart(age,measure):
+    fig=go.Figure()
+    try:
+        d=load_panel(BASE/'data/external/census_acs_tenure_age.csv')
+    except (FileNotFoundError,ValueError) as exc:
+        fig.add_annotation(text='Census ACS observations not downloaded yet',showarrow=False,font={'size':17})
+        return figure_style(fig),f'{exc}. Run python refresh_household_data.py.'
+    d=d[d.age_band==age].sort_values('year')
+    if d.empty or measure not in ('renter_share','owner_share','renter_households','owner_households'):
+        fig.add_annotation(text='No eligible Census observations',showarrow=False)
+        return figure_style(fig),'No data for selection.'
+    fig.add_trace(go.Scatter(x=d.year,y=d[measure],mode='lines+markers',name='US Census ACS 1-year',line={'color':'#9ed4bc','width':3}))
+    if measure.endswith('_share'):
+        fig.update_yaxes(tickformat='.0%',range=[0,1])
+    fig.update_layout(title=f'{age} · {measure.replace("_"," ")} · age of householder')
+    years=set(d.year.astype(int))
+    gaps=sorted(set(range(min(years),max(years)+1))-years)
+    note=f'Official ACS 1-year B25007 estimates · {len(d)} years · {min(years)}–{max(years)}. '
+    note+=f'Missing years: {gaps}. ' if gaps else ''
+    note+='Not a financial-readiness measure; no interpolation. Source: api.census.gov.'
+    return figure_style(fig),note
 
 @app.callback(Output('hh-ev-chart','figure'),Output('hh-ev-coverage','children'),
               Input('hh-ev-age','value'),Input('hh-ev-group','value'),Input('hh-ev-metric','value'))
