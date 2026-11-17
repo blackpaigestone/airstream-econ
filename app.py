@@ -6,9 +6,10 @@ from src.model import scenario
 from src.optionality import flexibility_cost, five_year_outcome, opportunity_value, income_gain_value
 from src.data_sources import SERIES,load
 from src.research.historical import build_historical_panel
+from src.research.households import household_budget, readiness_budget
 
 BASE=Path(__file__).parent
-app=Dash(__name__,title='The Economics of Mobility')
+app=Dash(__name__,title='The Economics of Optionality')
 server=app.server
 COLORS={'ink':'#e8eee9','muted':'#9aa9a3','bg':'#0e1719','panel':'#182528','accent':'#9ed4bc','gold':'#e5bd79'}
 app.index_string='''<!DOCTYPE html><html><head>{%metas%}<title>{%title%}</title>{%favicon%}{%css%}<style>
@@ -130,13 +131,56 @@ def evidence_charts(_):
         fig.update_layout(xaxis_title='Calendar year',yaxis_title='Index (1990=100)')
     return figure_style(a),figure_style(b),f'Observed common-year coverage: {int(data.year.min())}–{int(data.year.max())}, {len(data)} annual observations. Sources: FRED / Census / BLS / FHFA / Freddie Mac. Annual means for nonannual series. No fabricated data.'
 
-app.layout=html.Div([html.Div('APPLIED ECONOMICS / RESEARCH DASHBOARD',className='eyebrow'),html.H1('The Economics of Mobility',className='hero'),html.P('A generation apart. One housing decision. A transparent analysis of affordability, geographic freedom, and a $155,000 Airstream Atlas.',className='sub'),
+def household_research():
+    return html.Div([
+      html.H2('Household scale & financial readiness · V4'),
+      html.P('RQ4: Has the age at which independent economic stability becomes feasible shifted? This tab introduces a transparent scenario model. It is NOT an observed historical age comparison.',className='sub'),
+      panel(html.H3('Economies of sharing a household'),
+        html.P('Hold household fixed expenses constant to isolate sharing economies. Vary earners independently to separate cost-sharing from additional income.'),
+        html.Label('Adults in household'),dcc.Slider(id='hh-adults',min=1,max=5,step=1,value=1,marks={i:str(i) for i in range(1,6)}),
+        html.Label('Number of income earners'),dcc.Slider(id='hh-earners',min=0,max=5,step=1,value=1,marks={i:str(i) for i in range(6)}),
+        html.Label('Fixed shared costs ($/month)'),dcc.Slider(id='hh-fixed',min=500,max=5000,step=100,value=2000,tooltip={'always_visible':True}),
+        html.Label('Variable costs per adult ($/month)'),dcc.Slider(id='hh-variable',min=200,max=2000,step=50,value=600,tooltip={'always_visible':True}),
+        html.Label('Net monthly income per earner ($)'),dcc.Slider(id='hh-wage',min=0,max=12000,step=250,value=4000,tooltip={'always_visible':True}),
+        html.Div(id='hh-summary'),dcc.Graph(id='hh-scale-chart'),
+        html.P('Hypothetical budget only. Actual housing requirements, taxes, dependent costs, and household economies are heterogeneous. Cost sharing is not the same as having more earners.',className='small')),
+      panel(html.H3('Financial independence readiness · scenario'),
+        html.P('Readiness is operationalized as positive cash flow, a minimum savings rate, and liquid reserves sufficient for emergencies plus a transition. It is not a measure of personal maturity.'),
+        html.Label('Liquid savings ($)'),dcc.Slider(id='hh-savings',min=0,max=100000,step=1000,value=10000,tooltip={'always_visible':True}),
+        html.Label('Emergency reserve (months)'),dcc.Slider(id='hh-runway',min=0,max=12,step=1,value=3,marks={i:str(i) for i in (0,3,6,9,12)}),
+        html.Label('Relocation / opportunity fund ($)'),dcc.Slider(id='hh-transition',min=0,max=30000,step=1000,value=5000,tooltip={'always_visible':True}),
+        html.Label('Minimum sustainable savings rate (%)'),dcc.Slider(id='hh-minrate',min=0,max=30,step=5,value=10,marks={i:f'{i}%' for i in (0,10,20,30)}),
+        html.Div(id='hh-readiness')),
+      panel(html.H3('Historical readiness: evidence still required'),
+        html.P('Primary published age band: 25–34; comparison groups: 35–44 and 45–54. A readiness-age curve requires consistently defined age-specific microdata with liquid savings, income, and household expenses. No age-gap estimates are plotted without those observations.',className='note'),
+        html.P('V4 includes a validated, unweighted microdata calculation function in src/research/households.py. Before publishing historical estimates, obtain documented source data, survey weights, harmonized definitions and coverage checks. See RESEARCH_V4.md.'))])
+
+@app.callback(Output('hh-summary','children'),Output('hh-scale-chart','figure'),Output('hh-readiness','children'),
+              Input('hh-adults','value'),Input('hh-earners','value'),Input('hh-fixed','value'),Input('hh-variable','value'),Input('hh-wage','value'),
+              Input('hh-savings','value'),Input('hh-runway','value'),Input('hh-transition','value'),Input('hh-minrate','value'))
+def household_outputs(adults,earners,fixed,variable,wage,savings,runway,transition,minrate):
+    earners=min(earners,adults)
+    b=household_budget(adults,earners,fixed,variable,wage)
+    r=readiness_budget(b['income'],b['expenses'],savings,runway,transition,minrate/100)
+    fig=go.Figure()
+    xs=list(range(1,6))
+    fig.add_trace(go.Bar(x=xs,y=[household_budget(n,min(earners,n),fixed,variable,wage)['per_adult_cost'] for n in xs],name='Cost per adult',marker_color='#9ed4bc'))
+    fig.update_layout(xaxis_title='Adults sharing expenses',yaxis_title='Monthly cost per adult ($)',xaxis=dict(tickmode='array',tickvals=xs))
+    summary=html.Div([html.P(f'Household monthly costs: ${b["expenses"]:,.0f} | Per adult: ${b["per_adult_cost"]:,.0f} | Net household income: ${b["income"]:,.0f} | Monthly surplus: ${b["surplus"]:,.0f}'),
+                      html.P(f'Income earners used: {earners} of {adults}. Bar chart holds fixed and per-adult variable costs constant; no observed population data.',className='small')])
+    months='not reachable with current surplus' if r['months_to_reserve'] is None else f'{r["months_to_reserve"]:.1f} months'
+    ready='MEETS the selected scenario thresholds' if r['fully_ready'] else 'DOES NOT meet all selected scenario thresholds'
+    readiness=html.Div([html.P(f'Reserve + transition target: ${r["reserve_target"]:,.0f} | Available liquid savings: ${savings:,.0f}'),
+                        html.P(f'Scenario status: {ready}'),html.P(f'Estimated time to target at constant surplus: {months}. This is a deterministic scenario, not a forecast.',className='small')])
+    return summary,figure_style(fig),readiness
+
+app.layout=html.Div([html.Div('APPLIED ECONOMICS / RESEARCH DASHBOARD',className='eyebrow'),html.H1('The Economics of Optionality',className='hero'),html.P('A generation apart. One housing decision. A transparent analysis of affordability, geographic freedom, and a $155,000 Airstream Atlas.',className='sub'),
 html.Div([metric('Current monthly rent','$3,000','Excludes utilities'),metric('Atlas purchase price','$155,000','Seller-confirmed during tour'),metric('Research horizon','1990–2026','Spring 2028 departure target')],className='grid'),
-dcc.Tabs(id='tabs',value='housing',className='tabs',children=[dcc.Tab(label='Housing scenarios',value='housing'),dcc.Tab(label='Historical economics',value='history'),dcc.Tab(label='Atlas valuation',value='valuation'),dcc.Tab(label='Route economics',value='route'),dcc.Tab(label='Historical evidence',value='evidence'),dcc.Tab(label='Income value',value='systems'),dcc.Tab(label='Flexibility',value='flexibility'),dcc.Tab(label='Five-year choices',value='choices'),dcc.Tab(label='Methodology',value='methods')]),
-html.Div([html.Div(housing(),id='page-housing'),html.Div(historical(),id='page-history',style={'display':'none'}),html.Div(valuation(),id='page-valuation',style={'display':'none'}),html.Div(route(),id='page-route',style={'display':'none'}),html.Div(methods(),id='page-methods',style={'display':'none'}),html.Div(historical_evidence(),id='page-evidence',style={'display':'none'}),html.Div(systems_research(),id='page-systems',style={'display':'none'}),html.Div(flexibility_research(),id='page-flexibility',style={'display':'none'}),html.Div(choice_research(),id='page-choices',style={'display':'none'})]),html.P('Research prototype · November 2026 · All figures nominal USD unless labeled otherwise.',className='small')],className='wrap')
-@app.callback(*[Output(f'page-{name}', 'style') for name in ('housing','history','valuation','route','methods','evidence','systems','flexibility','choices')],Input('tabs','value'))
+dcc.Tabs(id='tabs',value='housing',className='tabs',children=[dcc.Tab(label='Housing scenarios',value='housing'),dcc.Tab(label='Historical economics',value='history'),dcc.Tab(label='Atlas valuation',value='valuation'),dcc.Tab(label='Route economics',value='route'),dcc.Tab(label='Historical evidence',value='evidence'),dcc.Tab(label='Household readiness',value='households'),dcc.Tab(label='Income value',value='systems'),dcc.Tab(label='Flexibility',value='flexibility'),dcc.Tab(label='Five-year choices',value='choices'),dcc.Tab(label='Methodology',value='methods')]),
+html.Div([html.Div(housing(),id='page-housing'),html.Div(historical(),id='page-history',style={'display':'none'}),html.Div(valuation(),id='page-valuation',style={'display':'none'}),html.Div(route(),id='page-route',style={'display':'none'}),html.Div(methods(),id='page-methods',style={'display':'none'}),html.Div(historical_evidence(),id='page-evidence',style={'display':'none'}),html.Div(household_research(),id='page-households',style={'display':'none'}),html.Div(systems_research(),id='page-systems',style={'display':'none'}),html.Div(flexibility_research(),id='page-flexibility',style={'display':'none'}),html.Div(choice_research(),id='page-choices',style={'display':'none'})]),html.P('Research prototype · November 2026 · All figures nominal USD unless labeled otherwise.',className='small')],className='wrap')
+@app.callback(*[Output(f'page-{name}', 'style') for name in ('housing','history','valuation','route','methods','evidence','households','systems','flexibility','choices')],Input('tabs','value'))
 def page(tab):
-    return tuple({} if name == tab else {'display':'none'} for name in ('housing','history','valuation','route','methods','evidence','systems','flexibility','choices'))
+    return tuple({} if name == tab else {'display':'none'} for name in ('housing','history','valuation','route','methods','evidence','households','systems','flexibility','choices'))
 @app.callback(Output('history-chart','figure'),Output('history-source','children'),Input('series','value'))
 def history_chart(series):
     df=load(series,str(BASE/'data/raw'))
