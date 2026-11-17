@@ -7,6 +7,7 @@ from src.optionality import flexibility_cost, five_year_outcome, opportunity_val
 from src.data_sources import SERIES,load
 from src.research.historical import build_historical_panel
 from src.research.households import household_budget, readiness_budget
+from src.research.household_evidence import load_evidence
 
 BASE=Path(__file__).parent
 app=Dash(__name__,title='The Economics of Optionality')
@@ -174,13 +175,44 @@ def household_outputs(adults,earners,fixed,variable,wage,savings,runway,transiti
                         html.P(f'Scenario status: {ready}'),html.P(f'Estimated time to target at constant surplus: {months}. This is a deterministic scenario, not a forecast.',className='small')])
     return summary,figure_style(fig),readiness
 
+def household_evidence():
+    return html.Div([html.H2('Historical household evidence'),
+      html.P('Survey-weighted descriptive results from a documented, harmonized household extract. No data are synthesized or downloaded automatically.',className='sub'),
+      panel(html.H3('Population and indicator'),
+        html.Label('Age bracket'),dcc.Dropdown(id='hh-ev-age',options=[{'label':v,'value':v} for v in ['25–34','35–44','45–54']],value='25–34',style={'color':'#172022'}),
+        html.Label('Population'),dcc.Dropdown(id='hh-ev-group',options=[{'label':v,'value':v} for v in ['all households','solo adult renter','shared adult renter']],value='all households',style={'color':'#172022'}),
+        html.Label('Measure'),dcc.Dropdown(id='hh-ev-metric',options=[{'label':v,'value':k} for k,v in [('readiness_share','Readiness share (proxy)'),('positive_cashflow_share','Nonnegative cashflow share'),('weighted_savings_capacity','Annual disposable income minus essential spending'),('weighted_per_adult_essentials','Annual essentials per adult'),('weighted_independent_premium','Solo/shared observed spending ratio')]],value='readiness_share',style={'color':'#172022'}),
+        dcc.Graph(id='hh-ev-chart'),html.Div(id='hh-ev-coverage',className='small')),
+      panel(html.H3('Evidence boundary'),html.P('The required file is data/external/household_harmonized.csv. This is a researcher-produced harmonized extract, NOT a raw SCF, CE or Census file. Each source must document sample universe, survey weights, financial definitions, price base and comparability. No cross-source pooling, imputation, or readiness-age gap is inferred.'),
+        html.P('A solo/shared spending ratio describes observed groups; it does not identify the causal effect of sharing a household. Financial readiness is an operational proxy, not a validated financial-health diagnosis.',className='note'))])
+
+@app.callback(Output('hh-ev-chart','figure'),Output('hh-ev-coverage','children'),
+              Input('hh-ev-age','value'),Input('hh-ev-group','value'),Input('hh-ev-metric','value'))
+def household_evidence_chart(age,group,metric):
+    fig=go.Figure()
+    try:
+        d=load_evidence(BASE/'data/external/household_harmonized.csv')
+    except (FileNotFoundError,ValueError) as exc:
+        fig.add_annotation(text='Historical household observations unavailable',showarrow=False,font={'size':17})
+        return figure_style(fig),f'{exc}. See RESEARCH_V5.md for schema and provenance requirements.'
+    d=d[(d.age_band==age)&(d.group==group)].sort_values('year')
+    if d.empty or metric not in d.columns or d[metric].notna().sum()==0:
+        fig.add_annotation(text='No eligible observations for selection',showarrow=False)
+        return figure_style(fig),'No qualifying survey cells; minimum sample is 30 unweighted households per source/year/age/population.'
+    for source,p in d.groupby('source_id'):
+        fig.add_trace(go.Scatter(x=p.year,y=p[metric],mode='lines+markers',name=source,customdata=p[['n']],hovertemplate='Year %{x}<br>Value %{y:.3f}<br>Unweighted n %{customdata[0]}<extra>%{fullData.name}</extra>'))
+    if metric in ('readiness_share','positive_cashflow_share'):
+        fig.update_yaxes(tickformat='.0%',range=[0,1])
+    fig.update_layout(title=f'{age} · {group} · {metric} (observed harmonized extract)')
+    return figure_style(fig),f'{len(d)} source-year cells; {int(d.n.sum())} unweighted household records across cells. Each series is source-specific; no interpolation or pooling.'
+
 app.layout=html.Div([html.Div('APPLIED ECONOMICS / RESEARCH DASHBOARD',className='eyebrow'),html.H1('The Economics of Optionality',className='hero'),html.P('A generation apart. One housing decision. A transparent analysis of affordability, geographic freedom, and a $155,000 Airstream Atlas.',className='sub'),
 html.Div([metric('Current monthly rent','$3,000','Excludes utilities'),metric('Atlas purchase price','$155,000','Seller-confirmed during tour'),metric('Research horizon','1990–2026','Spring 2028 departure target')],className='grid'),
-dcc.Tabs(id='tabs',value='housing',className='tabs',children=[dcc.Tab(label='Housing scenarios',value='housing'),dcc.Tab(label='Historical economics',value='history'),dcc.Tab(label='Atlas valuation',value='valuation'),dcc.Tab(label='Route economics',value='route'),dcc.Tab(label='Historical evidence',value='evidence'),dcc.Tab(label='Household readiness',value='households'),dcc.Tab(label='Income value',value='systems'),dcc.Tab(label='Flexibility',value='flexibility'),dcc.Tab(label='Five-year choices',value='choices'),dcc.Tab(label='Methodology',value='methods')]),
-html.Div([html.Div(housing(),id='page-housing'),html.Div(historical(),id='page-history',style={'display':'none'}),html.Div(valuation(),id='page-valuation',style={'display':'none'}),html.Div(route(),id='page-route',style={'display':'none'}),html.Div(methods(),id='page-methods',style={'display':'none'}),html.Div(historical_evidence(),id='page-evidence',style={'display':'none'}),html.Div(household_research(),id='page-households',style={'display':'none'}),html.Div(systems_research(),id='page-systems',style={'display':'none'}),html.Div(flexibility_research(),id='page-flexibility',style={'display':'none'}),html.Div(choice_research(),id='page-choices',style={'display':'none'})]),html.P('Research prototype · November 2026 · All figures nominal USD unless labeled otherwise.',className='small')],className='wrap')
-@app.callback(*[Output(f'page-{name}', 'style') for name in ('housing','history','valuation','route','methods','evidence','households','systems','flexibility','choices')],Input('tabs','value'))
+dcc.Tabs(id='tabs',value='housing',className='tabs',children=[dcc.Tab(label='Housing scenarios',value='housing'),dcc.Tab(label='Historical economics',value='history'),dcc.Tab(label='Atlas valuation',value='valuation'),dcc.Tab(label='Route economics',value='route'),dcc.Tab(label='Historical evidence',value='evidence'),dcc.Tab(label='Household readiness',value='households'),dcc.Tab(label='Household evidence',value='hh-evidence'),dcc.Tab(label='Income value',value='systems'),dcc.Tab(label='Flexibility',value='flexibility'),dcc.Tab(label='Five-year choices',value='choices'),dcc.Tab(label='Methodology',value='methods')]),
+html.Div([html.Div(housing(),id='page-housing'),html.Div(historical(),id='page-history',style={'display':'none'}),html.Div(valuation(),id='page-valuation',style={'display':'none'}),html.Div(route(),id='page-route',style={'display':'none'}),html.Div(methods(),id='page-methods',style={'display':'none'}),html.Div(historical_evidence(),id='page-evidence',style={'display':'none'}),html.Div(household_research(),id='page-households',style={'display':'none'}),html.Div(household_evidence(),id='page-hh-evidence',style={'display':'none'}),html.Div(systems_research(),id='page-systems',style={'display':'none'}),html.Div(flexibility_research(),id='page-flexibility',style={'display':'none'}),html.Div(choice_research(),id='page-choices',style={'display':'none'})]),html.P('Research prototype · November 2026 · All figures nominal USD unless labeled otherwise.',className='small')],className='wrap')
+@app.callback(*[Output(f'page-{name}', 'style') for name in ('housing','history','valuation','route','methods','evidence','households','hh-evidence','systems','flexibility','choices')],Input('tabs','value'))
 def page(tab):
-    return tuple({} if name == tab else {'display':'none'} for name in ('housing','history','valuation','route','methods','evidence','households','systems','flexibility','choices'))
+    return tuple({} if name == tab else {'display':'none'} for name in ('housing','history','valuation','route','methods','evidence','households','hh-evidence','systems','flexibility','choices'))
 @app.callback(Output('history-chart','figure'),Output('history-source','children'),Input('series','value'))
 def history_chart(series):
     df=load(series,str(BASE/'data/raw'))
