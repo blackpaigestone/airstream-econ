@@ -11,6 +11,7 @@ from src.research.household_evidence import load_evidence
 from src.research.census_acs import load_panel
 from src.research.census_income import load_income_panel, real_income_index
 from src.research.census_rent_burden import load_burden_panel
+from src.research.household_microdata import load_households, summarize_renter_burden
 
 BASE=Path(__file__).parent
 app=Dash(__name__,title='The Economics of Optionality')
@@ -200,7 +201,13 @@ def household_evidence():
       panel(html.H3('National renter housing-cost burden · V5.3'),
         html.P('Observed ACS 1-year B25070. Share of renter households spending at least 30% or 50% of household income on gross rent (rent plus applicable utilities). Denominator excludes households for which the ratio is not computed. These observations cover ALL ages and cannot be attributed to the 25–34 cohort.',className='small'),
         dcc.Graph(id='acs-burden-chart'),html.Div(id='acs-burden-coverage',className='small'),
-        html.P('Cost burden is a descriptive affordability indicator, not disposable income, a readiness score, or evidence that sharing housing causes a particular outcome. No direct age-specific income-to-burden comparison is made.',className='note'))])
+        html.P('Cost burden is a descriptive affordability indicator, not disposable income, a readiness score, or evidence that sharing housing causes a particular outcome. No direct age-specific income-to-burden comparison is made.',className='note')),
+      panel(html.H3('Household-level renter affordability · V5.4'),
+        html.P('Prepared household-level microdata only. This section remains unavailable until a source-verified extract is supplied. One-person versus multi-person households are descriptive groups, not a causal sharing effect.',className='small'),
+        html.Label('Age of householder'),dcc.Dropdown(id='micro-age',options=[{'label':a,'value':a} for a in ['25–34','35–44','45–54']],value='25–34',style={'color':'#172022'}),
+        html.Label('Housing burden threshold'),dcc.Dropdown(id='micro-threshold',options=[{'label':'At least 30%','value':'burden_30_share'},{'label':'At least 50%','value':'burden_50_share'}],value='burden_30_share',style={'color':'#172022'}),
+        dcc.Graph(id='micro-chart'),html.Div(id='micro-coverage',className='small'),
+        html.P('Survey weights are applied to household shares. Cells with fewer than 30 valid unweighted households are suppressed. Design-based uncertainty intervals are not yet available. Do not infer an age of financial independence.',className='note'))])
 
 AGE_COLORS={'25–34':'#66d4b3','35–44':'#72a8f7','45–54':'#f2b66d'}
 INCOME_COLORS={'Under 25':'#b8a6ed','25–44':'#66d4b3','45–64':'#f2b66d','65+':'#72a8f7'}
@@ -275,6 +282,30 @@ def acs_burden_chart(_):
     fig.update_xaxes(title='ACS survey year',dtick=2)
     gaps=sorted(set(years)-set(d.year.astype(int)))
     return figure_style(fig),f'Official ACS 1-year B25070 · {len(d)} years, {min(years)}–{max(years)}; missing: {gaps}. US renter households, all ages. Denominator excludes B25070 not-computed cases. No interpolation.'
+
+@app.callback(Output('micro-chart','figure'),Output('micro-coverage','children'),
+              Input('micro-age','value'),Input('micro-threshold','value'))
+def micro_chart(age,threshold):
+    fig=go.Figure()
+    try:
+        d=summarize_renter_burden(load_households(BASE/'data/external/household_microdata_prepared.csv'))
+    except (FileNotFoundError,ValueError) as exc:
+        fig.add_annotation(text='Verified household-level observations not yet available',showarrow=False,font={'size':15})
+        return figure_style(fig),f'{exc}. See RESEARCH_V5_4.md and the prepared extract schema.'
+    d=d[d.age_band==age]
+    if d.empty:
+        fig.add_annotation(text='No eligible survey cells (n >= 30)',showarrow=False)
+        return figure_style(fig),'No eligible cells for this age bracket.'
+    years=list(range(int(d.year.min()),int(d.year.max())+1))
+    for (source,kind),g in d.groupby(['source_id','household_type']):
+        g=g.set_index('year').reindex(years)
+        fig.add_trace(go.Scatter(x=years,y=g[threshold],mode='lines+markers',connectgaps=False,
+          name=f'{kind} · {source}',line={'color':'#66d4b3' if kind=='one-person' else '#f2b66d',
+          'dash':'solid' if kind=='one-person' else 'dash'},
+          hovertemplate='Year %{x}<br>Burden %{y:.1%}<extra>%{fullData.name}</extra>'))
+    fig.update_layout(title=f'{age} · weighted renter cost burden · prepared household microdata')
+    fig.update_yaxes(tickformat='.0%',range=[0,1],title='Share of renter households')
+    return figure_style(fig),f'{len(d)} eligible source-year-group cells. Weighted household shares; minimum 30 unweighted valid observations per cell. No design-based confidence intervals or causal claims.'
 
 @app.callback(Output('hh-ev-chart','figure'),Output('hh-ev-coverage','children'),
               Input('hh-ev-age','value'),Input('hh-ev-group','value'),Input('hh-ev-metric','value'))
