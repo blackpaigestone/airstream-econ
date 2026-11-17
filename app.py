@@ -5,6 +5,7 @@ from dash import Dash, dcc, html, Input, Output
 from src.model import scenario
 from src.optionality import flexibility_cost, five_year_outcome, opportunity_value, income_gain_value
 from src.data_sources import SERIES,load
+from src.research.historical import build_historical_panel
 
 BASE=Path(__file__).parent
 app=Dash(__name__,title='The Economics of Mobility')
@@ -104,13 +105,38 @@ def indexed_chart():
     fig.update_layout(yaxis_title='Index, 1990=100',xaxis_title='Year')
     return figure_style(fig),' | '.join(details)
 
+def historical_evidence():
+    return html.Div([
+      html.H2('Historical evidence · national benchmarks'),
+      html.P('Research questions: income value, flexibility, and ownership versus mobility. These first charts describe national aggregates; they do not isolate younger single-income renters or measure the value of financial options.',className='sub'),
+      panel(html.H3('Observed income and inflation-adjusted home prices'),dcc.Graph(id='evidence-levels'),html.Div(id='evidence-coverage',className='small')),
+      panel(html.H3('Relative housing acquisition burdens'),dcc.Graph(id='evidence-burdens'),html.P('1990=100. A value of 150 indicates a 50% increase relative to the 1990 benchmark, not a 150% share of income.',className='small')),
+      panel(html.H3('Research integrity'),html.P('Real median household income is already adjusted for inflation; we do not deflate it again. New-home median sale prices reflect changing composition; FHFA measures a different housing concept. Mortgage-payment burden is a standardized proxy, not actual household underwriting.',className='note'),html.P('This release does not establish the historical value of flexibility, causal effects, or young single-income household outcomes. See RESEARCH_V3.md for definitions and next data requirements.'))])
+
+@app.callback(Output('evidence-levels','figure'),Output('evidence-burdens','figure'),Output('evidence-coverage','children'),Input('tabs','value'))
+def evidence_charts(_):
+    a=go.Figure();b=go.Figure()
+    try:
+        data=build_historical_panel(BASE/'data/raw',base_year=1990)
+    except (FileNotFoundError,ValueError) as exc:
+        for fig in (a,b):
+            fig.add_annotation(text='Historical data unavailable — check local FRED CSVs',showarrow=False)
+        return figure_style(a),figure_style(b),str(exc)
+    for col,label,color in [('real_income_index','Real median household income','#9ed4bc'),('real_new_home_price_index','Real median NEW home sale price','#e5bd79'),('real_fhfa_index','Real FHFA house price index','#92a7e2')]:
+        a.add_trace(go.Scatter(x=data.year,y=data[col],mode='lines',name=label,line=dict(color=color,width=3)))
+    for col,label,color in [('new_home_price_to_income_index','New-home price / real income (relative)','#e5bd79'),('mortgage_payment_to_income_index','Standardized mortgage payment / real income (relative)','#9ed4bc')]:
+        b.add_trace(go.Scatter(x=data.year,y=data[col],mode='lines',name=label,line=dict(color=color,width=3)))
+    for fig in (a,b):
+        fig.update_layout(xaxis_title='Calendar year',yaxis_title='Index (1990=100)')
+    return figure_style(a),figure_style(b),f'Observed common-year coverage: {int(data.year.min())}–{int(data.year.max())}, {len(data)} annual observations. Sources: FRED / Census / BLS / FHFA / Freddie Mac. Annual means for nonannual series. No fabricated data.'
+
 app.layout=html.Div([html.Div('APPLIED ECONOMICS / RESEARCH DASHBOARD',className='eyebrow'),html.H1('The Economics of Mobility',className='hero'),html.P('A generation apart. One housing decision. A transparent analysis of affordability, geographic freedom, and a $155,000 Airstream Atlas.',className='sub'),
 html.Div([metric('Current monthly rent','$3,000','Excludes utilities'),metric('Atlas purchase price','$155,000','Seller-confirmed during tour'),metric('Research horizon','1990–2026','Spring 2028 departure target')],className='grid'),
-dcc.Tabs(id='tabs',value='housing',className='tabs',children=[dcc.Tab(label='Housing scenarios',value='housing'),dcc.Tab(label='Historical economics',value='history'),dcc.Tab(label='Atlas valuation',value='valuation'),dcc.Tab(label='Route economics',value='route'),dcc.Tab(label='Income value',value='systems'),dcc.Tab(label='Flexibility',value='flexibility'),dcc.Tab(label='Five-year choices',value='choices'),dcc.Tab(label='Methodology',value='methods')]),
-html.Div([html.Div(housing(),id='page-housing'),html.Div(historical(),id='page-history',style={'display':'none'}),html.Div(valuation(),id='page-valuation',style={'display':'none'}),html.Div(route(),id='page-route',style={'display':'none'}),html.Div(methods(),id='page-methods',style={'display':'none'}),html.Div(systems_research(),id='page-systems',style={'display':'none'}),html.Div(flexibility_research(),id='page-flexibility',style={'display':'none'}),html.Div(choice_research(),id='page-choices',style={'display':'none'})]),html.P('Research prototype · November 2026 · All figures nominal USD unless labeled otherwise.',className='small')],className='wrap')
-@app.callback(*[Output(f'page-{name}', 'style') for name in ('housing','history','valuation','route','methods','systems','flexibility','choices')],Input('tabs','value'))
+dcc.Tabs(id='tabs',value='housing',className='tabs',children=[dcc.Tab(label='Housing scenarios',value='housing'),dcc.Tab(label='Historical economics',value='history'),dcc.Tab(label='Atlas valuation',value='valuation'),dcc.Tab(label='Route economics',value='route'),dcc.Tab(label='Historical evidence',value='evidence'),dcc.Tab(label='Income value',value='systems'),dcc.Tab(label='Flexibility',value='flexibility'),dcc.Tab(label='Five-year choices',value='choices'),dcc.Tab(label='Methodology',value='methods')]),
+html.Div([html.Div(housing(),id='page-housing'),html.Div(historical(),id='page-history',style={'display':'none'}),html.Div(valuation(),id='page-valuation',style={'display':'none'}),html.Div(route(),id='page-route',style={'display':'none'}),html.Div(methods(),id='page-methods',style={'display':'none'}),html.Div(historical_evidence(),id='page-evidence',style={'display':'none'}),html.Div(systems_research(),id='page-systems',style={'display':'none'}),html.Div(flexibility_research(),id='page-flexibility',style={'display':'none'}),html.Div(choice_research(),id='page-choices',style={'display':'none'})]),html.P('Research prototype · November 2026 · All figures nominal USD unless labeled otherwise.',className='small')],className='wrap')
+@app.callback(*[Output(f'page-{name}', 'style') for name in ('housing','history','valuation','route','methods','evidence','systems','flexibility','choices')],Input('tabs','value'))
 def page(tab):
-    return tuple({} if name == tab else {'display':'none'} for name in ('housing','history','valuation','route','methods','systems','flexibility','choices'))
+    return tuple({} if name == tab else {'display':'none'} for name in ('housing','history','valuation','route','methods','evidence','systems','flexibility','choices'))
 @app.callback(Output('history-chart','figure'),Output('history-source','children'),Input('series','value'))
 def history_chart(series):
     df=load(series,str(BASE/'data/raw'))
