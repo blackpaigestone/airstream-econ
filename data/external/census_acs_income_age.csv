@@ -1,0 +1,57 @@
+source_id,year,age_band,median_household_income,source_url
+CENSUS_ACS1_B19049,2010,25–44,54024,https://api.census.gov/data/2010/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2011,25–44,54768,https://api.census.gov/data/2011/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2012,25–44,55821,https://api.census.gov/data/2012/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2013,25–44,56987,https://api.census.gov/data/2013/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2014,25–44,58970,https://api.census.gov/data/2014/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2015,25–44,60810,https://api.census.gov/data/2015/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2016,25–44,62815,https://api.census.gov/data/2016/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2017,25–44,65879,https://api.census.gov/data/2017/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2018,25–44,68817,https://api.census.gov/data/2018/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2019,25–44,72029,https://api.census.gov/data/2019/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2021,25–44,77338,https://api.census.gov/data/2021/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2022,25–44,83783,https://api.census.gov/data/2022/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2023,25–44,87673,https://api.census.gov/data/2023/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2024,25–44,92084,https://api.census.gov/data/2024/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2010,45–64,60683,https://api.census.gov/data/2010/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2011,45–64,61148,https://api.census.gov/data/2011/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2012,45–64,62049,https://api.census.gov/data/2012/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2013,45–64,63474,https://api.census.gov/data/2013/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2014,45–64,65018,https://api.census.gov/data/2014/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2015,45–64,67224,https://api.census.gov/data/2015/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2016,45–64,69822,https://api.census.gov/data/2016/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2017,45–64,72443,https://api.census.gov/data/2017/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2018,45–64,75289,https://api.census.gov/data/2018/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2019,45–64,79165,https://api.census.gov/data/2019/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2021,45–64,83812,https://api.census.gov/data/2021/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2022,45–64,90748,https://api.census.gov/data/2022/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2023,45–64,94612,https://api.census.gov/data/2023/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2024,45–64,100055,https://api.census.gov/data/2024/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2010,65+,34381,https://api.census.gov/data/2010/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2011,65+,35107,https://api.census.gov/data/2011/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2012,65+,36743,https://api.census.gov/data/2012/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2013,65+,37847,https://api.census.gov/data/2013/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2014,65+,39186,https://api.census.gov/data/2014/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2015,65+,40971,https://api.census.gov/data/2015/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2016,65+,42113,https://api.census.gov/data/2016/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2017,65+,43735,https://api.census.gov/data/2017/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2018,65+,44992,https://api.census.gov/data/2018/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2019,65+,48893,https://api.census.gov/data/2019/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2021,65+,50969,https://api.census.gov/data/2021/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2022,65+,53963,https://api.census.gov/data/2022/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2023,65+,56038,https://api.census.gov/data/2023/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2024,65+,59648,https://api.census.gov/data/2024/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2010,Under 25,24143,https://api.census.gov/data/2010/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2011,Under 25,23788,https://api.census.gov/data/2011/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2012,Under 25,24476,https://api.census.gov/data/2012/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2013,Under 25,25391,https://api.census.gov/data/2013/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2014,Under 25,27047,https://api.census.gov/data/2014/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2015,Under 25,28411,https://api.census.gov/data/2015/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2016,Under 25,30524,https://api.census.gov/data/2016/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2017,Under 25,31867,https://api.census.gov/data/2017/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2018,Under 25,33389,https://api.census.gov/data/2018/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2019,Under 25,35999,https://api.census.gov/data/2019/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2021,Under 25,38164,https://api.census.gov/data/2021/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2022,Under 25,42079,https://api.census.gov/data/2022/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2023,Under 25,44846,https://api.census.gov/data/2023/acs/acs1/groups/B19049.json
+CENSUS_ACS1_B19049,2024,Under 25,46651,https://api.census.gov/data/2024/acs/acs1/groups/B19049.json

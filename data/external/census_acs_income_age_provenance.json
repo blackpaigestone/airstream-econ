@@ -1,0 +1,34 @@
+{
+  "source": "US Census ACS 1-year B19049",
+  "geography": "United States",
+  "population": "households by age of householder",
+  "measure": "median household income in survey-year inflation-adjusted dollars (ACS B19049)",
+  "years_requested": [
+    2010,
+    2024
+  ],
+  "years_retrieved": [
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2021,
+    2022,
+    2023,
+    2024
+  ],
+  "failures": [
+    {
+      "year": 2020,
+      "reason": "2020 ACS standard 1-year data were not released"
+    }
+  ],
+  "source_url": "https://api.census.gov/data.html",
+  "warning": "Published B19049 age bands are Under 25, 25\u201344, 45\u201364, 65+; these are household medians, not wages or disposable income. Each survey year uses its own price reference; normalize with CPI for longitudinal comparisons."
+}

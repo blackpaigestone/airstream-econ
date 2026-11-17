@@ -9,6 +9,7 @@ from src.research.historical import build_historical_panel
 from src.research.households import household_budget, readiness_budget
 from src.research.household_evidence import load_evidence
 from src.research.census_acs import load_panel
+from src.research.census_income import load_income_panel, real_income_index
 
 BASE=Path(__file__).parent
 app=Dash(__name__,title='The Economics of Optionality')
@@ -188,33 +189,67 @@ def household_evidence():
         html.P('A solo/shared spending ratio describes observed groups; it does not identify the causal effect of sharing a household. Financial readiness is an operational proxy, not a validated financial-health diagnosis.',className='note')),
       panel(html.H3('Observed Census tenure by age of householder'),
         html.P('US Census ACS 1-year, table B25007. These are observed housing tenure estimates for households classified by the age of the householder—not income, spending, financial readiness, or solo/shared household status.',className='small'),
-        html.Label('Census age bracket'),dcc.Dropdown(id='acs-age',options=[{'label':v,'value':v} for v in ('25–34','35–44','45–54')],value='25–34',style={'color':'#172022'}),
+        html.P('All three age brackets appear together; 25–34 is highlighted as the primary cohort.',className='small'),
         html.Label('Tenure measure'),dcc.Dropdown(id='acs-measure',options=[{'label':'Renter share','value':'renter_share'},{'label':'Owner share','value':'owner_share'},{'label':'Renter households','value':'renter_households'},{'label':'Owner households','value':'owner_households'}],value='renter_share',style={'color':'#172022'}),
-        dcc.Graph(id='acs-chart'),html.Div(id='acs-coverage',className='small'))])
+        dcc.Graph(id='acs-chart'),html.Div(id='acs-coverage',className='small')),
+      panel(html.H3('Observed Census median household income by age'),
+        html.P('ACS 1-year B19049 published income age bands: Under 25, 25–44, 45–64, 65+. These DIFFER from the 25–34, 35–44, 45–54 housing tenure bands. Medians are household-level, not individual earnings. Annual CPI converts survey-year dollars to a comparable real-income index. No missing years are interpolated.',className='small'),
+        html.Label('Income measure'),dcc.Dropdown(id='acs-income-measure',options=[{'label':'Median household income (survey-year dollars)','value':'nominal'},{'label':'Real income index (2010=100)','value':'real_index'}],value='real_index',style={'color':'#172022'}),
+        dcc.Graph(id='acs-income-chart'),html.Div(id='acs-income-coverage',className='small'))])
 
-@app.callback(Output('acs-chart','figure'),Output('acs-coverage','children'),
-              Input('acs-age','value'),Input('acs-measure','value'))
-def acs_chart(age,measure):
+AGE_COLORS={'25–34':'#66d4b3','35–44':'#72a8f7','45–54':'#f2b66d'}
+INCOME_COLORS={'Under 25':'#b8a6ed','25–44':'#66d4b3','45–64':'#f2b66d','65+':'#72a8f7'}
+
+def age_comparison_figure(d, measure, title, *, share=False, indexed=False, colors=None):
+    """Display all standard age bands; do not connect missing survey years."""
+    fig=go.Figure()
+    for age,color in (colors or AGE_COLORS).items():
+        sub=d.loc[d.age_band.eq(age)].sort_values('year')
+        if sub.empty:
+            continue
+        years=range(int(sub.year.min()),int(sub.year.max())+1)
+        vals=sub.set_index('year')[measure].reindex(years)
+        fig.add_trace(go.Scatter(x=list(years),y=vals,mode='lines+markers',name=age,
+            line={'color':color,'width':3 if age in ('25–34','25–44') else 2},
+            marker={'size':7 if age in ('25–34','25–44') else 5},connectgaps=False,
+            hovertemplate=f'Age {age}<br>Year %{{x}}<br>Value %{{y:{".1%" if share else ",.1f"}}}<extra></extra>'))
+    if share: fig.update_yaxes(tickformat='.0%',range=[0,1])
+    if indexed: fig.update_yaxes(title='Index (2010=100)')
+    fig.update_layout(title=title,legend={'orientation':'h','y':1.14,'x':0})
+    return figure_style(fig)
+
+@app.callback(Output('acs-chart','figure'),Output('acs-coverage','children'),Input('acs-measure','value'))
+def acs_chart(measure):
     fig=go.Figure()
     try:
         d=load_panel(BASE/'data/external/census_acs_tenure_age.csv')
     except (FileNotFoundError,ValueError) as exc:
         fig.add_annotation(text='Census ACS observations not downloaded yet',showarrow=False,font={'size':17})
         return figure_style(fig),f'{exc}. Run python refresh_household_data.py.'
-    d=d[d.age_band==age].sort_values('year')
-    if d.empty or measure not in ('renter_share','owner_share','renter_households','owner_households'):
-        fig.add_annotation(text='No eligible Census observations',showarrow=False)
+    if measure not in ('renter_share','owner_share','renter_households','owner_households'):
+        fig.add_annotation(text='Unsupported Census measure',showarrow=False)
         return figure_style(fig),'No data for selection.'
-    fig.add_trace(go.Scatter(x=d.year,y=d[measure],mode='lines+markers',name='US Census ACS 1-year',line={'color':'#9ed4bc','width':3}))
-    if measure.endswith('_share'):
-        fig.update_yaxes(tickformat='.0%',range=[0,1])
-    fig.update_layout(title=f'{age} · {measure.replace("_"," ")} · age of householder')
-    years=set(d.year.astype(int))
-    gaps=sorted(set(range(min(years),max(years)+1))-years)
-    note=f'Official ACS 1-year B25007 estimates · {len(d)} years · {min(years)}–{max(years)}. '
-    note+=f'Missing years: {gaps}. ' if gaps else ''
-    note+='Not a financial-readiness measure; no interpolation. Source: api.census.gov.'
-    return figure_style(fig),note
+    fig=age_comparison_figure(d,measure,f'{measure.replace("_"," ").title()} · age of householder',share=measure.endswith('_share'))
+    years=set(d.year.astype(int)); gaps=sorted(set(range(min(years),max(years)+1))-years)
+    note=f'Official ACS 1-year B25007 estimates · {len(years)} years · {min(years)}–{max(years)}. Missing years: {gaps}. No interpolation; not a financial-readiness measure.'
+    return fig,note
+
+@app.callback(Output('acs-income-chart','figure'),Output('acs-income-coverage','children'),Input('acs-income-measure','value'))
+def acs_income_chart(measure):
+    fig=go.Figure()
+    try:
+        d=load_income_panel(BASE/'data/external/census_acs_income_age.csv')
+        if measure=='real_index':
+            d=real_income_index(d,BASE/'data/raw/CPIAUCSL.csv',base_year=2010)
+            col='real_income_index'
+        elif measure=='nominal': col='median_household_income'
+        else: raise ValueError('Unsupported income measure')
+    except (FileNotFoundError,ValueError,KeyError) as exc:
+        fig.add_annotation(text='ACS income observations or CPI data unavailable',showarrow=False,font={'size':16})
+        return figure_style(fig),f'{exc}. Run python refresh_household_income.py. Real-income index additionally requires data/raw/CPIAUCSL.csv.'
+    fig=age_comparison_figure(d,col,'Median household income · published B19049 age groups · '+('real index (2010=100)' if measure=='real_index' else 'survey-year USD'),indexed=measure=='real_index',colors=INCOME_COLORS)
+    years=set(d.year.astype(int));gaps=sorted(set(range(min(years),max(years)+1))-years)
+    return fig,f'Official ACS 1-year B19049 · {len(years)} years, {min(years)}–{max(years)}; missing: {gaps}. B19049 age groups: Under 25, 25–44, 45–64, 65+ (not the narrower tenure age groups). Household medians, not individual wages, disposable income, or financial readiness. No interpolation.'
 
 @app.callback(Output('hh-ev-chart','figure'),Output('hh-ev-coverage','children'),
               Input('hh-ev-age','value'),Input('hh-ev-group','value'),Input('hh-ev-metric','value'))
