@@ -8,3 +8,6 @@ __pycache__/
 app.py.backup
 data/raw/
 data/processed/
+
+# Local application backups
+backups/
