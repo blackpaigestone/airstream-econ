@@ -51,9 +51,11 @@ def methods():
 
 app.layout=html.Div([html.Div('APPLIED ECONOMICS / RESEARCH DASHBOARD',className='eyebrow'),html.H1('The Economics of Mobility',className='hero'),html.P('A generation apart. One housing decision. A transparent analysis of affordability, geographic freedom, and a $155,000 Airstream Atlas.',className='sub'),
 html.Div([metric('Current monthly rent','$3,000','Excludes utilities'),metric('Atlas purchase price','$155,000','Seller-confirmed during tour'),metric('Research horizon','1990–2026','Spring 2028 departure target')],className='grid'),
-dcc.Tabs(id='tabs',value='housing',className='tabs',children=[dcc.Tab(label='Housing scenarios',value='housing'),dcc.Tab(label='Historical economics',value='history'),dcc.Tab(label='Atlas valuation',value='valuation'),dcc.Tab(label='Route economics',value='route'),dcc.Tab(label='Methodology',value='methods')]),html.Div(id='page'),html.P('Research prototype · November 2026 · All figures nominal USD unless labeled otherwise.',className='small')],className='wrap')
-@app.callback(Output('page','children'),Input('tabs','value'))
-def page(tab):return {'housing':housing,'history':historical,'valuation':valuation,'route':route,'methods':methods}[tab]()
+dcc.Tabs(id='tabs',value='housing',className='tabs',children=[dcc.Tab(label='Housing scenarios',value='housing'),dcc.Tab(label='Historical economics',value='history'),dcc.Tab(label='Atlas valuation',value='valuation'),dcc.Tab(label='Route economics',value='route'),dcc.Tab(label='Methodology',value='methods')]),
+html.Div([html.Div(housing(),id='page-housing'),html.Div(historical(),id='page-history',style={'display':'none'}),html.Div(valuation(),id='page-valuation',style={'display':'none'}),html.Div(route(),id='page-route',style={'display':'none'}),html.Div(methods(),id='page-methods',style={'display':'none'})]),html.P('Research prototype · November 2026 · All figures nominal USD unless labeled otherwise.',className='small')],className='wrap')
+@app.callback(*[Output(f'page-{name}', 'style') for name in ('housing','history','valuation','route','methods')],Input('tabs','value'))
+def page(tab):
+    return tuple({} if name == tab else {'display':'none'} for name in ('housing','history','valuation','route','methods'))
 @app.callback(Output('history-chart','figure'),Output('history-source','children'),Input('series','value'))
 def history_chart(series):
     df=load(series,str(BASE/'data/raw'))
