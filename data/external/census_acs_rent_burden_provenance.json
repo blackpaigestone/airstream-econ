@@ -1,0 +1,36 @@
+{
+  "source": "US Census ACS 1-year B25070",
+  "geography": "United States",
+  "universe": "renter-occupied housing units; all ages",
+  "denominator": "B25070_001E minus B25070_011E (not computed)",
+  "burden_30_numerator": "sum B25070_007E through B25070_010E",
+  "burden_50_numerator": "B25070_010E",
+  "years_requested": [
+    2010,
+    2024
+  ],
+  "years_retrieved": [
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2021,
+    2022,
+    2023,
+    2024
+  ],
+  "failures": [
+    {
+      "year": 2020,
+      "reason": "2020 ACS standard 1-year data were not released"
+    }
+  ],
+  "source_url": "https://api.census.gov/data/2024/acs/acs1/groups/B25070.json",
+  "limitations": "Not age-specific, not solo/shared, not causal; 2020 ACS 1-year standard release absent; excludes not-computed cases."
+}

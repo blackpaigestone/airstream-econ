@@ -10,6 +10,7 @@ from src.research.households import household_budget, readiness_budget
 from src.research.household_evidence import load_evidence
 from src.research.census_acs import load_panel
 from src.research.census_income import load_income_panel, real_income_index
+from src.research.census_rent_burden import load_burden_panel
 
 BASE=Path(__file__).parent
 app=Dash(__name__,title='The Economics of Optionality')
@@ -21,7 +22,7 @@ body{margin:0;background:#0e1719;color:#e8eee9;font-family:Inter,Arial,sans-seri
 def panel(*children):return html.Div(children,className='panel')
 def metric(name,value,note):return html.Div([html.Div(name,className='label'),html.Div(value,className='metric'),html.Div(note,className='small')],className='panel')
 def figure_style(fig):
-    fig.update_layout(paper_bgcolor='#182528',plot_bgcolor='#182528',font_color='#e8eee9',margin=dict(l=35,r=20,t=35,b=40),legend=dict(orientation='h',y=-.25),hovermode='x unified')
+    fig.update_layout(paper_bgcolor='#182528',plot_bgcolor='#182528',font_color='#e8eee9',margin=dict(l=35,r=20,t=55,b=55),legend=dict(orientation='h',y=-.25),hovermode='x unified')
     fig.update_xaxes(gridcolor='#2c3a3d');fig.update_yaxes(gridcolor='#2c3a3d');return fig
 
 def historical():
@@ -195,7 +196,11 @@ def household_evidence():
       panel(html.H3('Observed Census median household income by age'),
         html.P('ACS 1-year B19049 published income age bands: Under 25, 25–44, 45–64, 65+. These DIFFER from the 25–34, 35–44, 45–54 housing tenure bands. Medians are household-level, not individual earnings. Annual CPI converts survey-year dollars to a comparable real-income index. No missing years are interpolated.',className='small'),
         html.Label('Income measure'),dcc.Dropdown(id='acs-income-measure',options=[{'label':'Median household income (survey-year dollars)','value':'nominal'},{'label':'Real income index (2010=100)','value':'real_index'}],value='real_index',style={'color':'#172022'}),
-        dcc.Graph(id='acs-income-chart'),html.Div(id='acs-income-coverage',className='small'))])
+        dcc.Graph(id='acs-income-chart'),html.Div(id='acs-income-coverage',className='small')),
+      panel(html.H3('National renter housing-cost burden · V5.3'),
+        html.P('Observed ACS 1-year B25070. Share of renter households spending at least 30% or 50% of household income on gross rent (rent plus applicable utilities). Denominator excludes households for which the ratio is not computed. These observations cover ALL ages and cannot be attributed to the 25–34 cohort.',className='small'),
+        dcc.Graph(id='acs-burden-chart'),html.Div(id='acs-burden-coverage',className='small'),
+        html.P('Cost burden is a descriptive affordability indicator, not disposable income, a readiness score, or evidence that sharing housing causes a particular outcome. No direct age-specific income-to-burden comparison is made.',className='note'))])
 
 AGE_COLORS={'25–34':'#66d4b3','35–44':'#72a8f7','45–54':'#f2b66d'}
 INCOME_COLORS={'Under 25':'#b8a6ed','25–44':'#66d4b3','45–64':'#f2b66d','65+':'#72a8f7'}
@@ -250,6 +255,26 @@ def acs_income_chart(measure):
     fig=age_comparison_figure(d,col,'Median household income · published B19049 age groups · '+('real index (2010=100)' if measure=='real_index' else 'survey-year USD'),indexed=measure=='real_index',colors=INCOME_COLORS)
     years=set(d.year.astype(int));gaps=sorted(set(range(min(years),max(years)+1))-years)
     return fig,f'Official ACS 1-year B19049 · {len(years)} years, {min(years)}–{max(years)}; missing: {gaps}. B19049 age groups: Under 25, 25–44, 45–64, 65+ (not the narrower tenure age groups). Household medians, not individual wages, disposable income, or financial readiness. No interpolation.'
+
+@app.callback(Output('acs-burden-chart','figure'),Output('acs-burden-coverage','children'),Input('tabs','value'))
+def acs_burden_chart(_):
+    fig=go.Figure()
+    try:
+        d=load_burden_panel(BASE/'data/external/census_acs_rent_burden.csv')
+    except (FileNotFoundError,ValueError) as exc:
+        fig.add_annotation(text='National renter burden data not downloaded yet',showarrow=False,font={'size':16})
+        return figure_style(fig),f'{exc}. Run python refresh_rent_burden.py.'
+    years=range(int(d.year.min()),int(d.year.max())+1)
+    for col,label,color in [('burden_30_share','At least 30%','#66d4b3'),('burden_50_share','At least 50%','#f2b66d')]:
+        vals=d.set_index('year')[col].reindex(years)
+        fig.add_trace(go.Scatter(x=list(years),y=vals,mode='lines+markers',name=label,
+            line={'color':color,'width':3},connectgaps=False,
+            hovertemplate=label+'<br>Year %{x}<br>Share %{y:.1%}<extra></extra>'))
+    fig.update_layout(legend={'orientation':'h','y':1.1,'x':0},hovermode='x unified')
+    fig.update_yaxes(tickformat='.0%',rangemode='tozero',title='Share of renter households (computed cases)')
+    fig.update_xaxes(title='ACS survey year',dtick=2)
+    gaps=sorted(set(years)-set(d.year.astype(int)))
+    return figure_style(fig),f'Official ACS 1-year B25070 · {len(d)} years, {min(years)}–{max(years)}; missing: {gaps}. US renter households, all ages. Denominator excludes B25070 not-computed cases. No interpolation.'
 
 @app.callback(Output('hh-ev-chart','figure'),Output('hh-ev-coverage','children'),
               Input('hh-ev-age','value'),Input('hh-ev-group','value'),Input('hh-ev-metric','value'))
