@@ -11,3 +11,8 @@ data/processed/
 
 # Local application backups
 backups/
+
+# Census microdata and generated research outputs
+data/raw/
+data/external/pums_prepared/
+data/derived/
